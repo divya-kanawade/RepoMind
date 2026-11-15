@@ -4,6 +4,15 @@
 import { useState } from "react";
 import RepositoryVisualizations from "../components/RepositoryVisualizations";
 
+type Dependency = {
+  source: string;
+  target: string;
+  specifier: string;
+  line: number;
+  language: string;
+  verified: boolean;
+};
+
 type AnalysisResult = {
   success: boolean;
   repository: {
@@ -20,6 +29,21 @@ type AnalysisResult = {
   };
   languages: Record<string, number>;
   technologies: string[];
+  dependencies: {
+    dependencies: Dependency[];
+    unresolved_imports: {
+      source: string;
+      specifier: string;
+      line: number;
+      kind: string;
+    }[];
+    summary: {
+      files_analyzed: number;
+      verified_dependencies: number;
+      unresolved_imports: number;
+      supported_languages: string[];
+    };
+  };
   structure: {
     total_files: number;
     total_directories: number;
@@ -37,15 +61,32 @@ type AnalysisResult = {
   };
 };
 
+type ChatResult = {
+  success: boolean;
+  repository: string;
+  answer: string;
+  model: string;
+  provider: string;
+  source_files: string[];
+};
+
 export default function Home() {
   const [repoUrl, setRepoUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
 
+  const [question, setQuestion] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState("");
+  const [chatResult, setChatResult] = useState<ChatResult | null>(null);
+
   async function analyzeRepository() {
     setError("");
     setResult(null);
+    setChatResult(null);
+    setChatError("");
+    setQuestion("");
 
     const trimmedUrl = repoUrl.trim();
 
@@ -61,13 +102,16 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/analyze", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ repo_url: trimmedUrl }),
-      });
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/analyze",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ repo_url: trimmedUrl }),
+        }
+      );
 
       const data = await response.json();
 
@@ -84,6 +128,53 @@ export default function Home() {
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function askRepository() {
+    if (!result || !question.trim()) {
+      setChatError("Enter a question about this repository.");
+      return;
+    }
+
+    setChatLoading(true);
+    setChatError("");
+    setChatResult(null);
+
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/chat",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            repo_url: result.repository.url,
+            question: question.trim(),
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          typeof data.detail === "string"
+            ? data.detail
+            : "The AI assistant could not answer your question."
+        );
+      }
+
+      setChatResult(data);
+    } catch (err) {
+      setChatError(
+        err instanceof Error
+          ? err.message
+          : "Unable to connect to the local AI assistant."
+      );
+    } finally {
+      setChatLoading(false);
     }
   }
 
@@ -136,7 +227,9 @@ export default function Home() {
           <header className="flex h-16 items-center justify-between border-b border-[#d1d9e0] bg-white px-5 md:px-10">
             <p className="text-sm text-[#656d76]">
               Workspace <span className="mx-2">/</span>
-              <span className="font-semibold text-[#1f2328]">Overview</span>
+              <span className="font-semibold text-[#1f2328]">
+                Overview
+              </span>
             </p>
             <div className="rounded-full border border-[#d1d9e0] px-3 py-1.5 text-xs font-medium">
               Public repositories
@@ -243,7 +336,9 @@ export default function Home() {
                       <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-[#ddf4ff] text-lg text-[#0969da]">
                         {item.icon}
                       </div>
-                      <h4 className="text-sm font-semibold">{item.title}</h4>
+                      <h4 className="text-sm font-semibold">
+                        {item.title}
+                      </h4>
                       <p className="mt-2 text-sm leading-6 text-[#656d76]">
                         {item.description}
                       </p>
@@ -256,7 +351,9 @@ export default function Home() {
             {loading && (
               <div className="mt-10 rounded-xl border border-[#d1d9e0] bg-white p-10 text-center">
                 <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-[#d1d9e0] border-t-[#0969da]" />
-                <h3 className="font-semibold">Analyzing repository...</h3>
+                <h3 className="font-semibold">
+                  Analyzing repository...
+                </h3>
                 <p className="mt-2 text-sm text-[#656d76]">
                   Fetching GitHub data and processing repository information.
                 </p>
@@ -267,7 +364,9 @@ export default function Home() {
               <section className="mt-10 space-y-6">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm text-[#656d76]">Analysis results</p>
+                    <p className="text-sm text-[#656d76]">
+                      Analysis results
+                    </p>
                     <h3 className="mt-1 text-2xl font-bold">
                       {result.repository.full_name}
                     </h3>
@@ -294,7 +393,10 @@ export default function Home() {
                       "Open issues",
                       result.repository.open_issues.toLocaleString(),
                     ],
-                    ["Total files", result.structure.total_files.toLocaleString()],
+                    [
+                      "Total files",
+                      result.structure.total_files.toLocaleString(),
+                    ],
                   ].map(([label, value]) => (
                     <div
                       key={label}
@@ -308,7 +410,9 @@ export default function Home() {
 
                 <div className="grid gap-5 lg:grid-cols-2">
                   <div className="rounded-xl border border-[#d1d9e0] bg-white p-5">
-                    <h4 className="font-semibold">Technologies detected</h4>
+                    <h4 className="font-semibold">
+                      Technologies detected
+                    </h4>
                     <div className="mt-4 flex flex-wrap gap-2">
                       {result.technologies.map((technology) => (
                         <span
@@ -320,7 +424,9 @@ export default function Home() {
                       ))}
                     </div>
 
-                    <h5 className="mt-6 text-sm font-semibold">Languages</h5>
+                    <h5 className="mt-6 text-sm font-semibold">
+                      Languages
+                    </h5>
                     <div className="mt-3 space-y-2">
                       {Object.entries(result.languages).map(
                         ([language, bytes]) => (
@@ -339,7 +445,9 @@ export default function Home() {
                   </div>
 
                   <div className="rounded-xl border border-[#d1d9e0] bg-white p-5">
-                    <h4 className="font-semibold">Repository structure</h4>
+                    <h4 className="font-semibold">
+                      Repository structure
+                    </h4>
                     <p className="mt-2 text-sm text-[#656d76]">
                       {result.structure.total_files} files ·{" "}
                       {result.structure.total_directories} top-level directories
@@ -357,16 +465,156 @@ export default function Home() {
                   </div>
                 </div>
 
+                <div className="rounded-xl border border-[#d1d9e0] bg-white p-5">
+                  <h4 className="font-semibold">
+                    Dependency Analysis Summary
+                  </h4>
+                  <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
+                    <div className="rounded-lg bg-[#f6f8fa] p-4">
+                      <p className="text-xs text-[#656d76]">
+                        Files analyzed
+                      </p>
+                      <p className="mt-2 text-2xl font-bold">
+                        {result.dependencies.summary.files_analyzed}
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-[#f6f8fa] p-4">
+                      <p className="text-xs text-[#656d76]">
+                        Verified dependencies
+                      </p>
+                      <p className="mt-2 text-2xl font-bold text-[#1a7f37]">
+                        {result.dependencies.summary.verified_dependencies}
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-[#f6f8fa] p-4">
+                      <p className="text-xs text-[#656d76]">
+                        Unresolved imports
+                      </p>
+                      <p className="mt-2 text-2xl font-bold">
+                        {result.dependencies.summary.unresolved_imports}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <RepositoryVisualizations
                   repositoryName={result.repository.name}
                   technologies={result.technologies}
                   languages={result.languages}
                   directories={result.structure.directories}
                   files={result.structure.files}
+                  dependencies={result.dependencies.dependencies}
                 />
 
+                <section className="rounded-xl border border-[#d1d9e0] bg-white p-5 shadow-sm md:p-7">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#ddf4ff] text-lg text-[#0969da]">
+                          ✧
+                        </div>
+                        <h4 className="text-base font-semibold">
+                          AI Repository Assistant
+                        </h4>
+                      </div>
+                      <p className="mt-2 text-sm text-[#656d76]">
+                        Ask questions about the code and structure of{" "}
+                        {result.repository.full_name}.
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-[#1a7f37]/30 bg-[#dafbe1] px-3 py-1 text-xs font-medium text-[#1a7f37]">
+                      ● Local AI · Ollama
+                    </span>
+                  </div>
+
+                  <div className="mt-5">
+                    <textarea
+                      value={question}
+                      onChange={(event) => setQuestion(event.target.value)}
+                      placeholder="Example: Explain the main purpose of this project and how its routing works..."
+                      rows={3}
+                      disabled={chatLoading}
+                      className="w-full resize-y rounded-lg border border-[#d1d9e0] bg-white p-3 text-sm outline-none transition placeholder:text-[#8c959f] focus:border-[#0969da] focus:ring-2 focus:ring-[#ddf4ff] disabled:bg-[#f6f8fa]"
+                    />
+
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-xs text-[#656d76]">
+                        Answers are generated locally using qwen2.5:1.5b.
+                      </p>
+                      <button
+                        onClick={askRepository}
+                        disabled={chatLoading || !question.trim()}
+                        className="rounded-lg bg-[#0969da] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0550ae] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {chatLoading
+                          ? "Thinking..."
+                          : "Ask RepoMind →"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {chatError && (
+                    <div className="mt-4 rounded-lg border border-[#ff8182] bg-[#ffebe9] p-3 text-sm text-[#cf222e]">
+                      {chatError}
+                    </div>
+                  )}
+
+                  {chatLoading && (
+                    <div className="mt-5 rounded-lg bg-[#f6f8fa] p-5">
+                      <div className="flex items-center gap-3">
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#d1d9e0] border-t-[#0969da]" />
+                        <p className="text-sm text-[#656d76]">
+                          Reading relevant repository files and generating
+                          an answer. This may take a little while...
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {chatResult && (
+                    <div className="mt-5 rounded-xl border border-[#d1d9e0] bg-[#f6f8fa] p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h5 className="font-semibold">
+                          RepoMind&apos;s answer
+                        </h5>
+                        <span className="text-xs text-[#656d76]">
+                          {chatResult.model} · {chatResult.provider}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 whitespace-pre-wrap text-sm leading-7 text-[#24292f]">
+                        {chatResult.answer}
+                      </div>
+
+                      <div className="mt-5 border-t border-[#d1d9e0] pt-4">
+                        <h6 className="text-sm font-semibold">
+                          Source files used
+                        </h6>
+                        {chatResult.source_files.length > 0 ? (
+                          <ul className="mt-3 space-y-2">
+                            {chatResult.source_files.map((file) => (
+                              <li
+                                key={file}
+                                className="break-all rounded-md border border-[#d1d9e0] bg-white px-3 py-2 font-mono text-xs text-[#0969da]"
+                              >
+                                {file}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mt-2 text-xs text-[#656d76]">
+                            No source files were returned for this answer.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </section>
+
                 <div className="rounded-xl border border-[#d1d9e0] bg-white p-5">
-                  <h4 className="font-semibold">Repository explanation</h4>
+                  <h4 className="font-semibold">
+                    Repository explanation
+                  </h4>
                   <p className="mt-3 text-sm leading-7 text-[#656d76]">
                     {result.ai_analysis.explanation}
                   </p>
@@ -376,7 +624,9 @@ export default function Home() {
                 </div>
 
                 <div className="rounded-xl border border-[#d1d9e0] bg-white p-5">
-                  <h4 className="font-semibold">README key points</h4>
+                  <h4 className="font-semibold">
+                    README key points
+                  </h4>
                   {result.readme.available ? (
                     <ul className="mt-4 list-disc space-y-3 pl-5 text-sm leading-6 text-[#656d76]">
                       {result.readme.key_points.map((point, index) => (
@@ -395,6 +645,9 @@ export default function Home() {
                     setResult(null);
                     setRepoUrl("");
                     setError("");
+                    setQuestion("");
+                    setChatResult(null);
+                    setChatError("");
                   }}
                   className="rounded-lg border border-[#d1d9e0] bg-white px-4 py-2 text-sm font-medium hover:bg-[#f6f8fa]"
                 >

@@ -23,3 +23,9 @@ dist/
 # Logs
 *.log
 npm-debug.log*
+
+# RepoMind local AI environment and data
+.venv-rag/
+chroma_db/
+chroma_test/
+main_backup.py
