@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import RepositoryVisualizations from "../components/RepositoryVisualizations";
 
 type AnalysisResult = {
   success: boolean;
@@ -48,7 +49,11 @@ export default function Home() {
 
     const trimmedUrl = repoUrl.trim();
 
-    if (!/^https?:\/\/(www\.)?github\.com\/[^/]+\/[^/]+\/?$/.test(trimmedUrl)) {
+    if (
+      !/^https?:\/\/(www\.)?github\.com\/[^/]+\/[^/]+\/?$/i.test(
+        trimmedUrl
+      )
+    ) {
       setError("Enter a valid public GitHub repository URL.");
       return;
     }
@@ -92,7 +97,9 @@ export default function Home() {
             </div>
             <div>
               <h1 className="text-lg font-bold">RepoMind</h1>
-              <p className="text-xs text-[#656d76]">Repository intelligence</p>
+              <p className="text-xs text-[#656d76]">
+                Repository intelligence
+              </p>
             </div>
           </div>
 
@@ -200,7 +207,9 @@ export default function Home() {
             {!result && !loading && (
               <>
                 <div className="mb-5 mt-10">
-                  <h3 className="text-base font-semibold">What you can explore</h3>
+                  <h3 className="text-base font-semibold">
+                    What you can explore
+                  </h3>
                   <p className="mt-1 text-sm text-[#656d76]">
                     Insights generated from repository information.
                   </p>
@@ -263,7 +272,8 @@ export default function Home() {
                       {result.repository.full_name}
                     </h3>
                     <p className="mt-2 text-sm text-[#656d76]">
-                      {result.repository.description || "No description available."}
+                      {result.repository.description ||
+                        "No description available."}
                     </p>
                   </div>
                   <a
@@ -280,7 +290,10 @@ export default function Home() {
                   {[
                     ["Stars", result.repository.stars.toLocaleString()],
                     ["Forks", result.repository.forks.toLocaleString()],
-                    ["Open issues", result.repository.open_issues.toLocaleString()],
+                    [
+                      "Open issues",
+                      result.repository.open_issues.toLocaleString(),
+                    ],
                     ["Total files", result.structure.total_files.toLocaleString()],
                   ].map(([label, value]) => (
                     <div
@@ -306,19 +319,22 @@ export default function Home() {
                         </span>
                       ))}
                     </div>
+
                     <h5 className="mt-6 text-sm font-semibold">Languages</h5>
                     <div className="mt-3 space-y-2">
-                      {Object.entries(result.languages).map(([language, bytes]) => (
-                        <div
-                          key={language}
-                          className="flex justify-between text-sm"
-                        >
-                          <span>{language}</span>
-                          <span className="text-[#656d76]">
-                            {bytes.toLocaleString()} bytes
-                          </span>
-                        </div>
-                      ))}
+                      {Object.entries(result.languages).map(
+                        ([language, bytes]) => (
+                          <div
+                            key={language}
+                            className="flex justify-between text-sm"
+                          >
+                            <span>{language}</span>
+                            <span className="text-[#656d76]">
+                              {bytes.toLocaleString()} bytes
+                            </span>
+                          </div>
+                        )
+                      )}
                     </div>
                   </div>
 
@@ -340,6 +356,14 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
+
+                <RepositoryVisualizations
+                  repositoryName={result.repository.name}
+                  technologies={result.technologies}
+                  languages={result.languages}
+                  directories={result.structure.directories}
+                  files={result.structure.files}
+                />
 
                 <div className="rounded-xl border border-[#d1d9e0] bg-white p-5">
                   <h4 className="font-semibold">Repository explanation</h4>
