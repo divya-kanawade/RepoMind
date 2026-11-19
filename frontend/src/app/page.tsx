@@ -2,7 +2,8 @@
 "use client";
 
 import { useState } from "react";
-import RepositoryVisualizations from "../components/RepositoryVisualizations";
+import InteractiveRepositoryMap from "../components/InteractiveRepositoryMap";
+import RepositoryExplorer from "../components/RepositoryExplorer";
 
 type Dependency = {
   source: string;
@@ -49,6 +50,12 @@ type AnalysisResult = {
     total_directories: number;
     directories: string[];
     files: string[];
+    tree: {
+      path: string;
+      type: "blob" | "tree";
+      size: number | null;
+    }[];
+    truncated?: boolean;
   };
   readme: {
     available: boolean;
@@ -497,13 +504,19 @@ export default function Home() {
                   </div>
                 </div>
 
-                <RepositoryVisualizations
+                <InteractiveRepositoryMap
                   repositoryName={result.repository.name}
                   technologies={result.technologies}
                   languages={result.languages}
                   directories={result.structure.directories}
                   files={result.structure.files}
-                  dependencies={result.dependencies.dependencies}
+                />
+
+                <RepositoryExplorer
+                  tree={result.structure.tree || []}
+                  totalFiles={result.structure.total_files}
+                  totalDirectories={result.structure.total_directories}
+                  truncated={result.structure.truncated}
                 />
 
                 <section className="rounded-xl border border-[#d1d9e0] bg-white p-5 shadow-sm md:p-7">
