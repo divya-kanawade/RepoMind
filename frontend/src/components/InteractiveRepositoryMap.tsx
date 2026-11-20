@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState } from "react";
@@ -24,11 +25,38 @@ type MapData = {
 
 type Props = {
   repositoryName: string;
-  technologies?: string[];
+  technologies?: string[] | Record<string, unknown>;
   languages?: Record<string, number>;
   directories?: string[];
   files?: string[];
 };
+
+// Converts technologies from either an array or an object into a string array.
+function normalizeStringList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => normalizeStringList(item));
+  }
+
+  if (typeof value === "string") {
+    return value.trim() ? [value.trim()] : [];
+  }
+
+  if (value && typeof value === "object") {
+    return Object.entries(value).flatMap(([key, item]) => {
+      if (item === true) return [key];
+
+      if (item === false || item == null) return [];
+
+      if (typeof item === "string") {
+        return item.trim() ? [item.trim()] : [];
+      }
+
+      return normalizeStringList(item);
+    });
+  }
+
+  return [];
+}
 
 function RepositoryNode({ data }: NodeProps<Node<MapData>>) {
   const colors: Record<string, string> = {
@@ -41,15 +69,25 @@ function RepositoryNode({ data }: NodeProps<Node<MapData>>) {
   };
 
   return (
-    <div className={`min-w-[180px] max-w-[230px] rounded-xl border-2 p-3 shadow-sm ${colors[data.category] || "border-slate-300 bg-white"}`}>
+    <div
+      className={`min-w-[180px] max-w-[230px] rounded-xl border-2 p-3 shadow-sm ${
+        colors[data.category] || "border-slate-300 bg-white"
+      }`}
+    >
       <Handle type="target" position={Position.Top} />
+
       <div className="text-xs font-semibold uppercase text-slate-500">
         {data.category}
       </div>
+
       <div className="mt-1 break-words text-sm font-bold text-slate-900">
         {data.label}
       </div>
-      <div className="mt-1 text-xs text-slate-600">{data.description}</div>
+
+      <div className="mt-1 text-xs text-slate-600">
+        {data.description}
+      </div>
+
       <Handle type="source" position={Position.Bottom} />
     </div>
   );
@@ -65,6 +103,16 @@ function MapContent({
   files = [],
 }: Props) {
   const [selected, setSelected] = useState<MapData | null>(null);
+
+  // Normalize incoming backend data before using array methods.
+  const technologyList = normalizeStringList(technologies);
+  const directoryList = normalizeStringList(directories);
+  const fileList = normalizeStringList(files);
+
+  const languageEntries =
+    languages && typeof languages === "object"
+      ? Object.entries(languages)
+      : [];
 
   const nodes = useMemo<Node<MapData>[]>(() => {
     const result: Node<MapData>[] = [];
@@ -106,7 +154,7 @@ function MapContent({
       add(id, label, description, category, Number(x), 180);
     });
 
-    directories.slice(0, 12).forEach((directory, i) => {
+    directoryList.slice(0, 12).forEach((directory, i) => {
       add(
         `directory-${i}`,
         directory,
@@ -118,7 +166,7 @@ function MapContent({
       );
     });
 
-    technologies.slice(0, 12).forEach((technology, i) => {
+    technologyList.slice(0, 12).forEach((technology, i) => {
       add(
         `technology-${i}`,
         technology,
@@ -130,7 +178,7 @@ function MapContent({
       );
     });
 
-    Object.entries(languages).slice(0, 10).forEach(([language, value], i) => {
+    languageEntries.slice(0, 10).forEach(([language, value], i) => {
       add(
         `language-${i}`,
         language,
@@ -147,10 +195,17 @@ function MapContent({
       ["rag", "Ask Questions", "RAG-powered repository chatbot"],
       ["explorer", "Full Folder Structure", "Browse repository hierarchy"],
     ].forEach(([id, label, description], i) => {
-      add(id, label, description, "ai", 950, 350 + i * 150);
+      add(
+        id,
+        label,
+        description,
+        "ai",
+        950,
+        350 + i * 150
+      );
     });
 
-    files.slice(0, 8).forEach((file, i) => {
+    fileList.slice(0, 8).forEach((file, i) => {
       add(
         `file-${i}`,
         file.split("/").pop() || file,
@@ -163,10 +218,17 @@ function MapContent({
     });
 
     return result;
-  }, [repositoryName, technologies, languages, directories, files]);
+  }, [
+    repositoryName,
+    technologyList,
+    directoryList,
+    fileList,
+    languageEntries,
+  ]);
 
   const edges = useMemo<Edge[]>(() => {
     const result: Edge[] = [];
+
     const connect = (source: string, target: string) => {
       result.push({
         id: `${source}-${target}`,
@@ -180,26 +242,33 @@ function MapContent({
       connect("repository", id)
     );
 
-    directories.slice(0, 12).forEach((_, i) =>
+    directoryList.slice(0, 12).forEach((_, i) =>
       connect("structure", `directory-${i}`)
     );
 
-    technologies.slice(0, 12).forEach((_, i) =>
+    technologyList.slice(0, 12).forEach((_, i) =>
       connect("technology", `technology-${i}`)
     );
 
-    Object.keys(languages).slice(0, 10).forEach((_, i) =>
+    languageEntries.slice(0, 10).forEach((_, i) =>
       connect("languages", `language-${i}`)
     );
 
-    ["summary", "rag", "explorer"].forEach((id) => connect("ai", id));
+    ["summary", "rag", "explorer"].forEach((id) =>
+      connect("ai", id)
+    );
 
-    files.slice(0, 8).forEach((_, i) =>
+    fileList.slice(0, 8).forEach((_, i) =>
       connect("structure", `file-${i}`)
     );
 
     return result;
-  }, [directories, technologies, languages, files]);
+  }, [
+    directoryList,
+    technologyList,
+    languageEntries,
+    fileList,
+  ]);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -207,6 +276,7 @@ function MapContent({
         <h2 className="text-lg font-bold text-slate-900">
           Interactive Repository Map
         </h2>
+
         <p className="text-sm text-slate-500">
           Explore the repository structure and its connections.
         </p>
@@ -238,15 +308,22 @@ function MapContent({
             >
               ✕
             </button>
+
             <p className="text-xs font-semibold uppercase text-violet-600">
               {selected.category}
             </p>
+
             <h3 className="mt-2 font-bold">{selected.label}</h3>
+
             <p className="mt-2 text-sm text-slate-600">
               {selected.description}
             </p>
-            {selected.details?.map((detail) => (
-              <p key={detail} className="mt-2 text-xs text-slate-500">
+
+            {selected.details?.map((detail, index) => (
+              <p
+                key={`${detail}-${index}`}
+                className="mt-2 text-xs text-slate-500"
+              >
                 {detail}
               </p>
             ))}

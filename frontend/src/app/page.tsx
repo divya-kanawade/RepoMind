@@ -5,15 +5,6 @@ import { useState } from "react";
 import InteractiveRepositoryMap from "../components/InteractiveRepositoryMap";
 import RepositoryExplorer from "../components/RepositoryExplorer";
 
-type Dependency = {
-  source: string;
-  target: string;
-  specifier: string;
-  line: number;
-  language: string;
-  verified: boolean;
-};
-
 type AnalysisResult = {
   success: boolean;
   repository: {
@@ -31,13 +22,6 @@ type AnalysisResult = {
   languages: Record<string, number>;
   technologies: string[];
   dependencies: {
-    dependencies: Dependency[];
-    unresolved_imports: {
-      source: string;
-      specifier: string;
-      line: number;
-      kind: string;
-    }[];
     summary: {
       files_analyzed: number;
       verified_dependencies: number;
@@ -185,10 +169,19 @@ export default function Home() {
     }
   }
 
+  function resetAnalysis() {
+    setResult(null);
+    setRepoUrl("");
+    setError("");
+    setQuestion("");
+    setChatResult(null);
+    setChatError("");
+  }
+
   return (
     <div className="min-h-screen bg-[#f6f8fa] text-[#1f2328]">
       <div className="flex min-h-screen">
-        <aside className="hidden w-64 shrink-0 border-r border-[#d1d9e0] bg-white p-6 md:block">
+        <aside className="hidden w-64 shrink-0 border-r border-[#d1d9e0] bg-white p-6 md:flex md:flex-col">
           <div className="mb-10 flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#24292f] text-xl font-bold text-white">
               R
@@ -206,15 +199,24 @@ export default function Home() {
           </p>
 
           <nav className="space-y-2">
-            <div className="rounded-lg bg-[#ddf4ff] px-3 py-2.5 text-sm font-semibold text-[#0969da]">
+            <a
+              href="#overview"
+              className="block rounded-lg bg-[#ddf4ff] px-3 py-2.5 text-sm font-semibold text-[#0969da]"
+            >
               <span className="mr-2">▦</span> Overview
-            </div>
-            <div className="rounded-lg px-3 py-2.5 text-sm text-[#656d76]">
+            </a>
+            <a
+              href="#repository-analysis"
+              className="block rounded-lg px-3 py-2.5 text-sm text-[#656d76] transition hover:bg-[#f6f8fa]"
+            >
               <span className="mr-2">⌕</span> Repository Analysis
-            </div>
-            <div className="rounded-lg px-3 py-2.5 text-sm text-[#656d76]">
-              <span className="mr-2">◷</span> Analysis History
-            </div>
+            </a>
+            <a
+              href="#project-summary"
+              className="block rounded-lg px-3 py-2.5 text-sm text-[#656d76] transition hover:bg-[#f6f8fa]"
+            >
+              <span className="mr-2">◷</span> Project Summary
+            </a>
           </nav>
 
           <div className="mt-10 rounded-xl border border-[#d1d9e0] bg-[#f6f8fa] p-4">
@@ -226,11 +228,11 @@ export default function Home() {
           </div>
 
           <div className="mt-auto pt-10 text-xs text-[#656d76]">
-            MCA Capstone Project
+            RepoMind Workspace
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1">
+        <main className="min-w-0 flex-1" id="overview">
           <header className="flex h-16 items-center justify-between border-b border-[#d1d9e0] bg-white px-5 md:px-10">
             <p className="text-sm text-[#656d76]">
               Workspace <span className="mx-2">/</span>
@@ -257,7 +259,10 @@ export default function Home() {
               </p>
             </div>
 
-            <section className="rounded-xl border border-[#d1d9e0] bg-white p-5 shadow-sm md:p-7">
+            <section
+              id="repository-analysis"
+              className="rounded-xl border border-[#d1d9e0] bg-white p-5 shadow-sm md:p-7"
+            >
               <div className="mb-5">
                 <h3 className="text-base font-semibold">
                   Analyze a GitHub repository
@@ -311,29 +316,35 @@ export default function Home() {
                     What you can explore
                   </h3>
                   <p className="mt-1 text-sm text-[#656d76]">
-                    Insights generated from repository information.
+                    Four ways to understand a repository.
                   </p>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {[
                     {
                       icon: "⌘",
-                      title: "Technology detection",
+                      title: "Repository Map",
                       description:
-                        "Identify programming languages and technologies used in a project.",
+                        "Explore how repository components and technologies connect.",
                     },
                     {
                       icon: "▤",
-                      title: "Project structure",
+                      title: "File Structure",
                       description:
-                        "Explore files, folders, and the overall repository organization.",
+                        "Navigate the repository hierarchy and inspect files.",
                     },
                     {
                       icon: "✧",
-                      title: "README intelligence",
+                      title: "Project Summary",
                       description:
-                        "Extract important information from project documentation using NLP.",
+                        "Understand the repository purpose and documentation.",
+                    },
+                    {
+                      icon: "💬",
+                      title: "Ask Questions",
+                      description:
+                        "Ask natural language questions about repository code.",
                     },
                   ].map((item) => (
                     <div
@@ -415,11 +426,11 @@ export default function Home() {
                   ))}
                 </div>
 
-                <div className="grid gap-5 lg:grid-cols-2">
-                  <div className="rounded-xl border border-[#d1d9e0] bg-white p-5">
-                    <h4 className="font-semibold">
-                      Technologies detected
-                    </h4>
+                <div className="rounded-xl border border-[#d1d9e0] bg-white p-5">
+                  <h4 className="font-semibold">
+                    Technologies detected
+                  </h4>
+                  {result.technologies.length > 0 ? (
                     <div className="mt-4 flex flex-wrap gap-2">
                       {result.technologies.map((technology) => (
                         <span
@@ -430,16 +441,22 @@ export default function Home() {
                         </span>
                       ))}
                     </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-[#656d76]">
+                      No technologies were detected.
+                    </p>
+                  )}
 
-                    <h5 className="mt-6 text-sm font-semibold">
-                      Languages
-                    </h5>
-                    <div className="mt-3 space-y-2">
+                  <h5 className="mt-6 text-sm font-semibold">
+                    Programming languages
+                  </h5>
+                  {Object.keys(result.languages).length > 0 ? (
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       {Object.entries(result.languages).map(
                         ([language, bytes]) => (
                           <div
                             key={language}
-                            className="flex justify-between text-sm"
+                            className="flex items-center justify-between rounded-lg bg-[#f6f8fa] px-3 py-2 text-sm"
                           >
                             <span>{language}</span>
                             <span className="text-[#656d76]">
@@ -449,59 +466,11 @@ export default function Home() {
                         )
                       )}
                     </div>
-                  </div>
-
-                  <div className="rounded-xl border border-[#d1d9e0] bg-white p-5">
-                    <h4 className="font-semibold">
-                      Repository structure
-                    </h4>
+                  ) : (
                     <p className="mt-2 text-sm text-[#656d76]">
-                      {result.structure.total_files} files ·{" "}
-                      {result.structure.total_directories} top-level directories
+                      Language information is unavailable.
                     </p>
-                    <div className="mt-4 space-y-2">
-                      {result.structure.directories.map((directory) => (
-                        <div
-                          key={directory}
-                          className="rounded-md bg-[#f6f8fa] px-3 py-2 text-sm"
-                        >
-                          📁 {directory}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-[#d1d9e0] bg-white p-5">
-                  <h4 className="font-semibold">
-                    Dependency Analysis Summary
-                  </h4>
-                  <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
-                    <div className="rounded-lg bg-[#f6f8fa] p-4">
-                      <p className="text-xs text-[#656d76]">
-                        Files analyzed
-                      </p>
-                      <p className="mt-2 text-2xl font-bold">
-                        {result.dependencies.summary.files_analyzed}
-                      </p>
-                    </div>
-                    <div className="rounded-lg bg-[#f6f8fa] p-4">
-                      <p className="text-xs text-[#656d76]">
-                        Verified dependencies
-                      </p>
-                      <p className="mt-2 text-2xl font-bold text-[#1a7f37]">
-                        {result.dependencies.summary.verified_dependencies}
-                      </p>
-                    </div>
-                    <div className="rounded-lg bg-[#f6f8fa] p-4">
-                      <p className="text-xs text-[#656d76]">
-                        Unresolved imports
-                      </p>
-                      <p className="mt-2 text-2xl font-bold">
-                        {result.dependencies.summary.unresolved_imports}
-                      </p>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 <InteractiveRepositoryMap
@@ -513,6 +482,7 @@ export default function Home() {
                 />
 
                 <RepositoryExplorer
+                  repositoryName={result.repository.name}
                   tree={result.structure.tree || []}
                   totalFiles={result.structure.total_files}
                   totalDirectories={result.structure.total_directories}
@@ -527,7 +497,7 @@ export default function Home() {
                           ✧
                         </div>
                         <h4 className="text-base font-semibold">
-                          AI Repository Assistant
+                          Ask Questions
                         </h4>
                       </div>
                       <p className="mt-2 text-sm text-[#656d76]">
@@ -544,6 +514,17 @@ export default function Home() {
                     <textarea
                       value={question}
                       onChange={(event) => setQuestion(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (
+                          event.key === "Enter" &&
+                          !event.shiftKey &&
+                          !chatLoading &&
+                          question.trim()
+                        ) {
+                          event.preventDefault();
+                          askRepository();
+                        }
+                      }}
                       placeholder="Example: Explain the main purpose of this project and how its routing works..."
                       rows={3}
                       disabled={chatLoading}
@@ -553,6 +534,7 @@ export default function Home() {
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                       <p className="text-xs text-[#656d76]">
                         Answers are generated locally using qwen2.5:1.5b.
+                        Press Enter to ask; Shift + Enter for a new line.
                       </p>
                       <button
                         onClick={askRepository}
@@ -624,9 +606,12 @@ export default function Home() {
                   )}
                 </section>
 
-                <div className="rounded-xl border border-[#d1d9e0] bg-white p-5">
+                <div
+                  id="project-summary"
+                  className="rounded-xl border border-[#d1d9e0] bg-white p-5"
+                >
                   <h4 className="font-semibold">
-                    Repository explanation
+                    Project Summary
                   </h4>
                   <p className="mt-3 text-sm leading-7 text-[#656d76]">
                     {result.ai_analysis.explanation}
@@ -641,11 +626,17 @@ export default function Home() {
                     README key points
                   </h4>
                   {result.readme.available ? (
-                    <ul className="mt-4 list-disc space-y-3 pl-5 text-sm leading-6 text-[#656d76]">
-                      {result.readme.key_points.map((point, index) => (
-                        <li key={index}>{point}</li>
-                      ))}
-                    </ul>
+                    result.readme.key_points.length > 0 ? (
+                      <ul className="mt-4 list-disc space-y-3 pl-5 text-sm leading-6 text-[#656d76]">
+                        {result.readme.key_points.map((point, index) => (
+                          <li key={index}>{point}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-3 text-sm text-[#656d76]">
+                        No key points were extracted from the README.
+                      </p>
+                    )
                   ) : (
                     <p className="mt-3 text-sm text-[#656d76]">
                       This repository does not have a README file.
@@ -654,14 +645,7 @@ export default function Home() {
                 </div>
 
                 <button
-                  onClick={() => {
-                    setResult(null);
-                    setRepoUrl("");
-                    setError("");
-                    setQuestion("");
-                    setChatResult(null);
-                    setChatError("");
-                  }}
+                  onClick={resetAnalysis}
                   className="rounded-lg border border-[#d1d9e0] bg-white px-4 py-2 text-sm font-medium hover:bg-[#f6f8fa]"
                 >
                   ← Analyze another repository
